@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chat Group Viewer (Safe Group Match)</title>
+  <style>
+    :root { --bg:#0b0f14; --panel:#111824; --card:#0f1722; --muted:#9bb0c7; --text:#e6eef8; --line:#223044; --accent:#4da3ff; --danger:#ff5d5d; --ok:#3ddc97; }
+    * { box-sizing: border-box; }
+    body { margin:0; background: linear-gradient(180deg, #07101a, var(--bg)); color: var(--text);
+      font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Microsoft Yahei"; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 18px; }
+    h1 { margin: 0 0 10px; font-size: 18px; }
+    .panel { background: rgba(17,24,36,.85); border:1px solid var(--line); border-radius: 14px; padding: 14px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.35); backdrop-filter: blur(10px); }
+    label { display:block; font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+    input, select, button {
+      width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background:#0b1320;
+      color: var(--text); outline:none;
+    }
+    input:focus, select:focus { border-color: rgba(77,163,255,.65); box-shadow: 0 0 0 3px rgba(77,163,255,.15); }
+    button { cursor:pointer; font-weight: 700;
+      background: linear-gradient(180deg, rgba(77,163,255,.22), rgba(77,163,255,.08));
+      border-color: rgba(77,163,255,.55);
+    }
+    button.secondary { font-weight: 600; background:#0b1320; border-color: var(--line); }
+    button.danger { background: rgba(255,93,93,.12); border-color: rgba(255,93,93,.5); color:#ffd0d0; }
+    .grid { display:grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 10px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+    .row { display:flex; gap:10px; flex-wrap: wrap; align-items: end; margin-top: 10px; }
+    .grow { flex: 1 1 260px; }
+    .mini { width: 160px; }
+    .meta { display:flex; gap:10px; flex-wrap: wrap; align-items:center; margin-top: 10px; color: var(--muted); }
+    .badge { display:inline-flex; gap:8px; align-items:center; padding: 6px 10px; border:1px solid var(--line);
+      border-radius: 999px; background: rgba(15,23,34,.7); font-size: 12px; }
+    .dot { width:8px; height:8px; border-radius: 99px; background: var(--ok); display:inline-block; }
+    .dot.idle { background: #ffcc66; }
+    .dot.err { background: var(--danger); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .errbox { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border:1px solid rgba(255,93,93,.45);
+      background: rgba(255,93,93,.10); color:#ffd0d0; display:none; white-space: pre-wrap; }
+    .okbox { margin-top: 10px; padding: 10px 12px; border-radius: 12px; border:1px solid rgba(61,220,151,.35);
+      background: rgba(61,220,151,.08); color:#d7ffef; display:none; white-space: pre-wrap; }
+    .content { margin-top: 14px; }
+    .list { display:flex; flex-direction: column; gap: 10px; }
+    .empty { padding: 24px; text-align:center; color: var(--muted); border:1px dashed rgba(155,176,199,.25);
+      border-radius: 14px; background: rgba(15,23,34,.35); }
+    .card { background: rgba(15,23,34,.72); border:1px solid var(--line); border-radius: 14px; padding: 12px; }
+    .card-header { display:flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .who { font-weight: 800; }
+    .time { color: var(--muted); font-size: 12px; }
+    .msg { margin-top: 8px; white-space: pre-wrap; word-break: break-word; }
+    .imgwrap { margin-top: 10px; }
+    .imgwrap img { max-width: 100%; border-radius: 12px; border:1px solid rgba(255,255,255,.08); display:block; }
+    .toolbar { display:flex; gap:10px; flex-wrap: wrap; justify-content: space-between; align-items:center; margin-bottom: 10px; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>Chat Group Viewer (Fetch <span class="mono">GET /groups</span> first, then load messages, to avoid name mismatch)</h1>
+
+    <div class="panel">
+      <div class="grid">
+        <div>
+          <label>Backend Base URL</label>
+          <input id="baseUrl" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000" />
+          <div class="hint">Your FastAPI address.</div>
+        </div>
+
+        <div>
+          <label>Load groups</label>
+          <button id="btnLoadGroups">Fetch /groups</button>
+          <div class="hint">Click this first so the page can get the “real group names” from the DB.</div>
+        </div>
+
+        <div>
+          <label>Limit (1~500)</label>
+          <input id="limit" type="number" min="1" max="500" value="200" />
+          <div class="hint">Max number of messages to fetch each time.</div>
+        </div>
+
+        <div>
+          <label>Auto Refresh</label>
+          <select id="autoRefresh">
+            <option value="off" selected>Off</option>
+            <option value="3000">Every 3s</option>
+            <option value="5000">Every 5s</option>
+            <option value="10000">Every 10s</option>
+          </select>
+          <div class="hint">Polling refresh (snapshot style).</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="grow">
+          <label>Group Picker (from /groups)</label>
+          <select id="groupSelect">
+            <option value="" selected>(Click Fetch /groups first)</option>
+          </select>
+          <div class="hint">Pick here to match the database exactly (including ' / ' / spaces, etc.).</div>
+        </div>
+
+        <div class="grow">
+          <label>Or type to match (fuzzy)</label>
+          <input id="groupFuzzy" placeholder="Type part of the name; I will pick the closest group (still uses the DB's real name)" />
+          <div class="hint">Example: type COMP 3278 and it will select the closest match.</div>
+        </div>
+
+        <div class="mini">
+          <label>Sort</label>
+          <select id="sort">
+            <option value="desc" selected>Newest → Oldest</option>
+            <option value="asc">Oldest → Newest</option>
+          </select>
+        </div>
+
+        <div class="mini">
+          <label>View</label>
+          <select id="viewMode">
+            <option value="all" selected>All</option>
+            <option value="textOnly">Text only</option>
+            <option value="imageOnly">Image only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="grow">
+          <label>After (optional)</label>
+          <input id="after" placeholder="YYYY-MM-DD HH:MM:SS" />
+        </div>
+        <div class="grow">
+          <label>Before (optional)</label>
+          <input id="before" placeholder="YYYY-MM-DD HH:MM:SS" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="grow">
+          <label>Search (client-side)</label>
+          <input id="search" placeholder="Filter by username / content / image_url (no backend request)" />
+        </div>
+        <div class="mini">
+          <label>&nbsp;</label>
+          <button id="btnLoadMsgs">Load Messages</button>
+        </div>
+        <div class="mini">
+          <label>&nbsp;</label>
+          <button class="secondary" id="btnExport">Export JSON</button>
+        </div>
+        <div class="mini">
+          <label>&nbsp;</label>
+          <button class="danger" id="btnClear">Clear</button>
+        </div>
+      </div>
+
+      <div class="meta">
+        <span class="badge"><span id="statusDot" class="dot idle"></span><span id="statusText">Idle</span></span>
+        <span class="badge">Groups: <span id="groupCount">0</span></span>
+        <span class="badge">Loaded: <span id="count">0</span></span>
+        <span class="badge">Filtered: <span id="filteredCount">0</span></span>
+        <span class="badge">Request URL: <span class="mono" id="reqUrl">—</span></span>
+      </div>
+
+      <div id="okbox" class="okbox"></div>
+      <div id="errbox" class="errbox"></div>
+
+      <div class="hint">
+        Key point: this page always uses the real <span class="mono">name</span> returned by <span class="mono">/groups</span> to build the URL, and applies <span class="mono">encodeURIComponent</span> to the path parameter to guarantee an exact match.
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="toolbar">
+        <div class="badge">Tips: If an image doesn't show, the source may block CORS or the link may be invalid.</div>
+        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+          <button class="secondary" id="btnTop">Scroll Top</button>
+          <button class="secondary" id="btnBottom">Scroll Bottom</button>
+        </div>
+      </div>
+
+      <div id="list" class="list">
+        <div class="empty">Click “Fetch /groups” first, select a group, then click “Load Messages”.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // -----------------------------
+  // State
+  // -----------------------------
+  let groups = [];        // [{id,name,created_at}]
+  let allMessages = [];   // message array
+  let timer = null;
+
+  // -----------------------------
+  // DOM
+  // -----------------------------
+  const $ = (id) => document.getElementById(id);
+
+  function setStatus(kind, text) {
+    const dot = $("statusDot");
+    dot.classList.remove("idle", "err");
+    if (kind === "idle") dot.classList.add("idle");
+    if (kind === "error") dot.classList.add("err");
+    $("statusText").textContent = text;
+  }
+
+  function showError(msg) {
+    $("errbox").style.display = "block";
+    $("errbox").textContent = msg;
+    $("okbox").style.display = "none";
+    setStatus("error", "Error");
+  }
+
+  function showOk(msg) {
+    $("okbox").style.display = "block";
+    $("okbox").textContent = msg;
+    $("errbox").style.display = "none";
+  }
+
+  function clearBoxes() {
+    $("errbox").style.display = "none";
+    $("errbox").textContent = "";
+    $("okbox").style.display = "none";
+    $("okbox").textContent = "";
+  }
+
+  function baseUrl() {
+    return $("baseUrl").value.trim().replace(/\/+$/, "");
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (m) => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  // -----------------------------
+  // Group handling
+  // -----------------------------
+  function normalizeLoose(s) {
+    // Used for “fuzzy matching” only; does not change the real name used for requests
+    return String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[’‘]/g, "'")     // normalize curly quotes to '
+      .replace(/\s+/g, " ")
+      .replace(/[–—]/g, "-");    // normalize en/em dash to -
+  }
+
+  function rebuildGroupSelect() {
+    const sel = $("groupSelect");
+    sel.innerHTML = `<option value="" selected>(Please select)</option>`;
+    for (const g of groups) {
+      const opt = document.createElement("option");
+      opt.value = String(g.id);
+      opt.textContent = `${g.name}  (id=${g.id})`;
+      sel.appendChild(opt);
+    }
+    $("groupCount").textContent = String(groups.length);
+  }
+
+  function selectGroupById(id) {
+    $("groupSelect").value = String(id);
+  }
+
+  function getSelectedGroup() {
+    const id = $("groupSelect").value;
+    if (!id) return null;
+    return groups.find(g => String(g.id) === String(id)) || null;
+  }
+
+  function fuzzyPickGroup(query) {
+    const q = normalizeLoose(query);
+    if (!q) return null;
+
+    // Simple scoring: contains + prefix match + length closeness
+    let best = null;
+    let bestScore = -1;
+
+    for (const g of groups) {
+      const nameN = normalizeLoose(g.name);
+      let score = 0;
+      if (nameN.includes(q)) score += 5;
+      if (nameN.startsWith(q)) score += 4;
+
+      // token overlap
+      const qTokens = new Set(q.split(" "));
+      const nTokens = new Set(nameN.split(" "));
+      let overlap = 0;
+      for (const t of qTokens) if (nTokens.has(t)) overlap++;
+      score += overlap;
+
+      // length closeness
+      score += Math.max(0, 2 - Math.abs(nameN.length - q.length) / 20);
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = g;
+      }
+    }
+    return best;
+  }
+
+  // -----------------------------
+  // Messages
+  // -----------------------------
+  function buildMessagesUrl(realGroupName) {
+    const limit = Number($("limit").value || 50);
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+
+    const after = $("after").value.trim();
+    const before = $("before").value.trim();
+    if (after) params.set("after", after);
+    if (before) params.set("before", before);
+
+    // Key: encode the path parameter so spaces/quotes/special chars match exactly
+    const groupPath = encodeURIComponent(realGroupName);
+    return `${baseUrl()}/groups/${groupPath}/messages?${params.toString()}`;
+  }
+
+  function applyFilters(messages) {
+    const q = $("search").value.trim().toLowerCase();
+    const view = $("viewMode").value;
+
+    let out = messages;
+
+    if (view === "textOnly") out = out.filter(m => (m.content && m.content.trim() !== ""));
+    if (view === "imageOnly") out = out.filter(m => (m.image_url && m.image_url.trim() !== ""));
+
+    if (q) {
+      out = out.filter(m => {
+        const u = (m.username || "").toLowerCase();
+        const c = (m.content || "").toLowerCase();
+        const img = (m.image_url || "").toLowerCase();
+        return u.includes(q) || c.includes(q) || img.includes(q);
+      });
+    }
+
+    const sort = $("sort").value;
+    out = [...out].sort((a,b) => {
+      if (a.created_at === b.created_at) return (a.id||0) - (b.id||0);
+      return sort === "asc"
+        ? (a.created_at < b.created_at ? -1 : 1)
+        : (a.created_at > b.created_at ? -1 : 1);
+    });
+
+    return out;
+  }
+
+  function render() {
+    const list = $("list");
+    const filtered = applyFilters(allMessages);
+
+    $("count").textContent = String(allMessages.length);
+    $("filteredCount").textContent = String(filtered.length);
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="empty">No messages to display (group may have no messages / filters too strict / not loaded yet).</div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(m => {
+      const who = escapeHtml(m.username ?? "");
+      const time = escapeHtml(m.created_at ?? "");
+      const content = (m.content ?? "").trim();
+      const imageUrl = (m.image_url ?? "").trim();
+
+      const contentHtml = content ? `<div class="msg">${escapeHtml(content)}</div>` : "";
+      const imgHtml = imageUrl ? `
+        <div class="imgwrap">
+          <a href="${escapeHtml(imageUrl)}" target="_blank" rel="noreferrer">Open image</a>
+          <img src="${escapeHtml(imageUrl)}" alt="image" loading="lazy" />
+        </div>` : "";
+
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="who">${who}</div>
+            <div class="time">${time} · #${m.id}</div>
+          </div>
+          ${contentHtml}
+          ${imgHtml}
+        </div>
+      `;
+    }).join("");
+  }
+
+  // -----------------------------
+  // Fetch /groups
+  // -----------------------------
+  async function fetchGroups() {
+    clearBoxes();
+    setStatus("idle", "Loading groups...");
+    $("btnLoadGroups").disabled = true;
+
+    try {
+      const url = `${baseUrl()}/groups`;
+      $("reqUrl").textContent = url;
+
+      const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`HTTP ${resp.status} ${resp.statusText}\n${text}`);
+      }
+      const data = await resp.json();
+      if (!Array.isArray(data)) throw new Error("Unexpected response: expected JSON array from /groups");
+
+      groups = data;
+      rebuildGroupSelect();
+      setStatus("idle", "Groups loaded");
+
+      showOk(`Groups loaded: ${data.length}.\nTip: Select from the dropdown to avoid name mismatch caused by manual typing.`);
+    } catch (e) {
+      showError(String(e?.message || e));
+    } finally {
+      $("btnLoadGroups").disabled = false;
+    }
+  }
+
+  // -----------------------------
+  // Fetch messages
+  // -----------------------------
+  async function loadMessages() {
+    clearBoxes();
+
+    const g = getSelectedGroup();
+    if (!g) {
+      showError("Please click Fetch /groups first, then select a group from the dropdown.");
+      return;
+    }
+
+    const url = buildMessagesUrl(g.name);
+    $("reqUrl").textContent = url;
+
+    setStatus("idle", "Loading messages...");
+    $("btnLoadMsgs").disabled = true;
+
+    try {
+      const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`HTTP ${resp.status} ${resp.statusText}\n${text}`);
+      }
+      const data = await resp.json();
+      if (!Array.isArray(data)) throw new Error("Unexpected response: expected JSON array from /messages");
+
+      allMessages = data;
+
+      showOk(`Matched group:\n- id: ${g.id}\n- name: ${g.name}\n\nMessages loaded: ${data.length}`);
+      setStatus("idle", "Messages loaded");
+      render();
+    } catch (e) {
+      showError(String(e?.message || e));
+    } finally {
+      $("btnLoadMsgs").disabled = false;
+    }
+  }
+
+  // -----------------------------
+  // Auto refresh
+  // -----------------------------
+  function setupAutoRefresh() {
+    if (timer) { clearInterval(timer); timer = null; }
+
+    const v = $("autoRefresh").value;
+    if (v === "off") {
+      setStatus("idle", "Idle");
+      return;
+    }
+    const ms = Number(v);
+    timer = setInterval(() => {
+      if (getSelectedGroup()) loadMessages();
+    }, ms);
+    setStatus("idle", `Auto refresh every ${Math.round(ms/1000)}s`);
+  }
+
+  // -----------------------------
+  // Export
+  // -----------------------------
+  function exportJson() {
+    const filtered = applyFilters(allMessages);
+    const g = getSelectedGroup();
+    const blob = new Blob([JSON.stringify(filtered, null, 2)], { type:"application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chat_${(g?.id ?? "group")}_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // -----------------------------
+  // Events
+  // -----------------------------
+  $("btnLoadGroups").addEventListener("click", fetchGroups);
+  $("btnLoadMsgs").addEventListener("click", loadMessages);
+  $("btnExport").addEventListener("click", exportJson);
+  $("btnClear").addEventListener("click", () => {
+    allMessages = [];
+    $("search").value = "";
+    render();
+    clearBoxes();
+    setStatus("idle", "Cleared");
+  });
+
+  $("search").addEventListener("input", render);
+  $("sort").addEventListener("change", render);
+  $("viewMode").addEventListener("change", render);
+
+  $("groupFuzzy").addEventListener("input", () => {
+    if (groups.length === 0) return;
+    const q = $("groupFuzzy").value;
+    const best = fuzzyPickGroup(q);
+    if (best) {
+      selectGroupById(best.id);
+      showOk(`Fuzzy match selected:\n- id: ${best.id}\n- name: ${best.name}\n\n(Request still uses the DB's real name)`);
+    }
+  });
+
+  $("autoRefresh").addEventListener("change", setupAutoRefresh);
+
+  $("btnTop").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+  $("btnBottom").addEventListener("click", () => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }));
+
+  // Init
+  render();
+</script>
+
+<!--
+  ========= CORS Note =========
+  If you open this HTML via file://, fetch to http://127.0.0.1:8000 may be blocked by CORS.
+  Add this to FastAPI:
+
+  from fastapi.middleware.cors import CORSMiddleware
+  app.add_middleware(
+      CORSMiddleware,
+      allow_origins=["*"],  # In production, specify allowed domains
+      allow_credentials=True,
+      allow_methods=["*"],
+      allow_headers=["*"],
+  )
+
+  Or serve the HTML with a local static server:
+    python -m http.server 5173
+  Then open:
+    http://127.0.0.1:5173/chat_viewer.html
+-->
+</body>
+</html>
