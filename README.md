@@ -1,5 +1,7 @@
 # HKU Comp 3278'26
 
+> Here is a tutorial for your group project. We use Vanna with Deepseek for Text-to-SQL Generation, ChatGPT for Vibe Coding. the tutorial slides can be found in this [link](./Group_Project.pdf).
+
 ## 1. Install git locally
 
 > Minimal steps to install Git locally so you can use `git clone`.  
