@@ -1,6 +1,6 @@
 <h1 align="center">HKU Comp 3278'26</h1>
 
-> Here is a tutorial for your group project. We use Vanna with Deepseek for Text-to-SQL Generation, ChatGPT for Vibe Coding. the tutorial slides can be found in this [link](./Group_Project.pdf).
+> Here is a tutorial for your group project. For this demo, we use Vanna with Deepseek for Text-to-SQL Generation, ChatGPT for UI vibe coding. The tutorial slides can be found in this [link](./Group_Project.pdf).
 
 ## 1. Install git locally
 
@@ -85,8 +85,6 @@
 </details>
 
 ## 2. Clone this repo
-
-> Please make sure you have registered Github account.
 
 Run the following code in your terminal.
 
