@@ -182,8 +182,21 @@ pip install -r requirements.txt
 
 Deepseek API Platform: [https://platform.deepseek.com/usage](https://platform.deepseek.com/usage)
 
+Set the environment variables for the LLM key and (optionally) a custom base URL.
+You can copy `.env.example` to `.env` and load it into your shell, or set them directly:
+
 ```
 export DEEPSEEK_API_KEY=sk-xxx
+export DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+export DEEPSEEK_MODEL=deepseek-chat
+```
+
+PowerShell example:
+
+```
+$env:DEEPSEEK_API_KEY="sk-xxx"
+$env:DEEPSEEK_BASE_URL="https://api.deepseek.com/v1"
+$env:DEEPSEEK_MODEL="deepseek-chat"
 ```
 
 ## 6. Try Vanna

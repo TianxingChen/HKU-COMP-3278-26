@@ -41,9 +41,12 @@ from vanna.integrations.local.agent_memory import DemoAgentMemory
 from vanna.integrations.openai import OpenAILlmService
 
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 
 DB_PATH = "./demo_chat_app.sqlite"
+
+load_dotenv()
 
 
 # =========================================================
@@ -205,10 +208,18 @@ if not DEEPSEEK_API_KEY:
     # We'll not crash; we'll warn in logs.
     print("[WARN] DEEPSEEK_API_KEY is empty. Vanna LLM calls may fail.")
 
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "").strip()
+if not DEEPSEEK_BASE_URL:
+    DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "").strip()
+if not DEEPSEEK_MODEL:
+    DEEPSEEK_MODEL = "deepseek-chat"
+
 llm = OpenAILlmService(
     api_key=DEEPSEEK_API_KEY,
-    model="deepseek-chat",  # or "deepseek-reasoner"
-    base_url="https://api.deepseek.com/v1",
+    model=DEEPSEEK_MODEL,
+    base_url=DEEPSEEK_BASE_URL,
 )
 
 agent = Agent(
