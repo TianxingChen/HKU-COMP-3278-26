@@ -233,7 +233,7 @@ a system can almost grow itself.”
 
 ## 7. Visualize the Database
 
-Use your Web Browser to open the `demo_index.html`.
+Use your web browser to open the `demo_index.html` (please keep `demo_chat_app.py` running).
 
 <details>
 <summary><strong>HTML Prompt (Interact with ChatGPT)</strong></summary>
